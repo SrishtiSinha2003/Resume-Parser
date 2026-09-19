@@ -379,6 +379,8 @@ with left:
             Upload the PDF or DOCX you want to evaluate.
         </div>
     """, unsafe_allow_html=True)
+    
+    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
     resume_file = st.file_uploader(
     "Choose a resume",
@@ -392,6 +394,7 @@ with left:
         st.caption("No resume selected yet.")
 
     st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
 with right:
     st.markdown("""
@@ -401,6 +404,8 @@ with right:
             Paste the complete description, including required skills.
         </div>
     """, unsafe_allow_html=True)
+    
+    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
     job_description = st.text_area(
         "Job description",
@@ -416,7 +421,7 @@ with right:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
 analyze = st.button(
     "Analyze compatibility",
