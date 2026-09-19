@@ -122,8 +122,8 @@ st.markdown("""
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 20px;
-    min-height: 270px;
+    padding: 18px;
+    min-height: 0px;
 }
 
 .input-title {
@@ -381,9 +381,9 @@ with left:
     """, unsafe_allow_html=True)
 
     resume_file = st.file_uploader(
-        "Choose a resume",
-        type=["pdf", "docx"],
-        help="Supported formats: PDF and DOCX"
+    "Choose a resume",
+    type=["pdf", "docx"],
+    label_visibility="collapsed"
     )
 
     if resume_file:
@@ -404,7 +404,7 @@ with right:
 
     job_description = st.text_area(
         "Job description",
-        height=180,
+        height=120,
         label_visibility="collapsed",
         placeholder=(
             "Example:\n"
