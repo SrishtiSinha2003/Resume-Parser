@@ -1,7 +1,7 @@
-# Resume Screening & Job Matching System
+s# Resume Screening & Job Matching System
 
-**Live Application: https://qpgrevkp4vssa6gkyrf2mx.streamlit.app/  
-**GitHub Repository:** https://github.com/anusha0934/resume-screening-job-matching
+**Live Application: https://resume-parser-jhpugub4fg2n4pthpcwkbj.streamlit.app/
+**GitHub Repository:** https://github.com/SrishtiSinha2003/Resume-Parser/edit/main/README.md
 
 ---
 
@@ -92,8 +92,7 @@ streamlit run app.py
 ---
 
 ## Author
-Anusha K A
-Mysore, Karnataka
+Srishti Sinha
 
 
 
