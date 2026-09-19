@@ -59,17 +59,70 @@ GENERIC_TERMS = {
 
 # Known tech skills that should always be kept even if POS looks odd
 TECH_SKILL_ALLOWLIST = {
-    "java", "python", "sql", "mysql", "mongodb", "postgresql", "redis",
-    "spring", "spring boot", "hibernate", "maven", "gradle",
-    "react", "react js", "angular", "vue", "node", "node js",
-    "javascript", "typescript", "html", "css",
-    "rest", "rest api", "restful", "graphql", "grpc",
-    "microservices", "docker", "kubernetes", "aws", "azure", "gcp",
-    "git", "github", "gitlab", "ci", "cd", "jenkins",
-    "jwt", "oauth", "oauth2", "linux", "bash",
-    "data structures", "algorithms", "oop", "solid",
-    "kafka", "rabbitmq", "redis", "elasticsearch",
-    "c", "c++", "c#", ".net", "go", "rust", "kotlin", "scala",
+    # Programming Languages
+    "java", "python", "c", "c++", "c#", "javascript",
+    "typescript", "go", "golang", "rust", "kotlin", "scala",
+    
+    # Backend
+    "spring", "spring boot", "spring security",
+    "hibernate", "maven", "gradle",
+    "node", "node.js", "node js",
+    "express", "express.js", "express js",
+    "django", "flask", "fastapi",
+    "rest", "rest api", "restful", "restful api",
+    "graphql", "grpc",
+    "microservices", "microservices architecture",
+    
+    # Frontend
+    "react", "react.js", "react js", "angular", "vue",
+    "vue.js", "html", "css", "bootstrap", "tailwind",
+    
+    # Databases
+    "sql", "mysql", "postgresql", "postgres",
+    "mongodb", "mongo", "redis", "oracle",
+    "elasticsearch",
+    
+    # DevOps / Cloud
+    "docker", "kubernetes", "aws", "azure", "gcp",
+    "jenkins", "ci/cd", "ci", "cd",
+    
+    # Version Control
+    "git", "github", "gitlab",
+    
+    # Security
+    "jwt", "oauth", "oauth2",
+    "authentication", "authorization",
+    
+    # Testing
+    "unit testing", "unit tests", "junit",
+    "pytest", "selenium",
+    
+    # CS
+    "data structures",
+    "algorithms",
+    "data structures and algorithms",
+    "oop",
+    "solid",
+    "object oriented programming",
+    "operating systems",
+    "computer networks",
+    "dbms",
+    "database management",
+    
+    # AI / ML
+    "machine learning",
+    "deep learning",
+    "natural language processing",
+    "nlp",
+    "computer vision",
+    "tensorflow",
+    "pytorch",
+    "scikit-learn",
+    "sklearn",
+    "pandas",
+    "numpy",
+    "transformers",
+    "bert",
 }
 
 
@@ -230,24 +283,42 @@ def extract_spacy_phrases(text):
 
 def extract_candidate_phrases(text, top_n=20):
     """
-    Combine KeyBERT and spaCy results.
+    Extract only recognized technical skills.
+
+    KeyBERT and spaCy are NOT used to decide whether
+    something is a skill. The technical skill allowlist
+    defines what qualifies as a skill.
     """
 
-    keybert_phrases = extract_keybert_phrases(
-        text,
-        top_n=top_n
+    text = normalize_phrase(text)
+
+    found_skills = []
+
+    # Check longer phrases first
+    sorted_skills = sorted(
+        TECH_SKILL_ALLOWLIST,
+        key=len,
+        reverse=True
     )
 
-    spacy_phrases = extract_spacy_phrases(text)
+    for skill in sorted_skills:
 
-    # Combine both approaches
-    combined = keybert_phrases + spacy_phrases
+        # Handle special characters safely
+        pattern = (
+            r"(?<![a-zA-Z0-9])"
+            + re.escape(skill)
+            + r"(?![a-zA-Z0-9])"
+        )
 
-    # Remove duplicates
-    unique_phrases = list(dict.fromkeys(combined))
+        if re.search(pattern, text):
 
-    return unique_phrases
+            # Convert to readable display format
+            display_skill = skill
 
+            if display_skill not in found_skills:
+                found_skills.append(display_skill)
+
+    return found_skills
 
 # =========================================================
 # 3. TF-IDF SIMILARITY
