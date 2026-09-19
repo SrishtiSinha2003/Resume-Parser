@@ -115,30 +115,6 @@ def _pos_validate_phrase(phrase):
     return any(p in {"NOUN", "PROPN"} for p in pos_tags)
 
 
-# Metadata label patterns to strip from JD headers
-_JD_HEADER_PATTERN = re.compile(
-    r"^(job\s*title|company|location|job\s*type|employment\s*type|salary|department)\s*:.*$",
-    re.IGNORECASE | re.MULTILINE
-)
-
-# Sentences/bullets starting with action verbs to strip
-_ACTION_VERB_PATTERN = re.compile(
-    r"(?:^|(?<=[.\n]))[\s\-•*]*"
-    r"(?:develop|design|implement|build|write|maintain|optimize|manage|ensure|"
-    r"participate|perform|work|collaborate|communicate|support|provide|create|"
-    r"we\s+are|we\s+re|looking\s+for|join\s+our|responsible\s+for|will\s+be)"
-    r"[^.\n]*[.\n]?",
-    re.IGNORECASE
-)
-
-
-def preprocess_for_extraction(text):
-    """Strip JD metadata headers and action-verb sentences before keyword extraction."""
-    text = _JD_HEADER_PATTERN.sub("", text)
-    text = _ACTION_VERB_PATTERN.sub(" ", text)
-    return re.sub(r"\s+", " ", text).strip()
-
-
 # =========================================================
 # TEXT NORMALIZATION
 # =========================================================
@@ -191,17 +167,6 @@ def is_valid_phrase(phrase):
     if not meaningful:
         return False
 
-    # Reject if first word is an action verb (catches leftover bullet fragments)
-    _action_verbs = {
-        "develop", "developing", "design", "implement", "implementing",
-        "build", "building", "write", "writing", "maintain", "maintaining",
-        "optimize", "optimizing", "manage", "managing", "test", "testing",
-        "participate", "perform", "work", "collaborate", "ensure", "create",
-        "looking", "join", "responsible",
-    }
-    if words[0] in _action_verbs:
-        return False
-
     # Check allowlist before expensive POS check
     if phrase in TECH_SKILL_ALLOWLIST:
         return True
@@ -215,8 +180,7 @@ def is_valid_phrase(phrase):
 # =========================================================
 
 def extract_keybert_phrases(text, top_n=20):
-    cleaned = preprocess_for_extraction(text)
-    cleaned = strip_noise_entities(cleaned)
+    cleaned = strip_noise_entities(text)
 
     keywords = kw_model.extract_keywords(
         cleaned,
@@ -240,8 +204,7 @@ def extract_keybert_phrases(text, top_n=20):
 # =========================================================
 
 def extract_spacy_phrases(text):
-    cleaned = preprocess_for_extraction(text)
-    doc = nlp(cleaned)
+    doc = nlp(text)
     noise_token_indices = {
         token.i
         for ent in doc.ents
@@ -252,6 +215,7 @@ def extract_spacy_phrases(text):
     for chunk in doc.noun_chunks:
         if any(token.i in noise_token_indices for token in chunk):
             continue
+        # Skip chunks whose root is a generic/HR word
         if chunk.root.lemma_.lower() in GENERIC_TERMS:
             continue
         phrase = normalize_phrase(chunk.text)
