@@ -27,103 +27,92 @@ kw_model = KeyBERT(model=embedding_model)
 # =========================================================
 
 GENERIC_TERMS = {
-    "experience",
-    "candidate",
-    "candidates",
-    "responsibility",
-    "responsibilities",
-    "requirement",
-    "requirements",
-    "role",
-    "roles",
-    "team",
-    "teams",
-    "company",
-    "organization",
-    "work",
-    "working",
-    "ability",
-    "abilities",
-    "knowledge",
-    "environment",
-    "project",
-    "projects",
-    "job",
-    "position",
-    "professional",
-    "professionals",
-    "skills",
-    "skill",
-    "developer",
-    "developers",
-    "engineer",
-    "engineers",
-    "employee",
-    "employees",
-    "candidate profile",
-    "job description",
-    # HR / job-posting noise
-    "looking",
-    "motivated",
-    "join",
-    "title",
-    "description",
-    "hybrid",
-    "onsite",
-    "remote",
-    "location",
-    "salary",
-    "apply",
-    "application",
-    "degree",
-    "bachelor",
-    "master",
-    "education",
-    "field",
-    "related field",
-    "familiarity",
-    "understanding",
-    "strong",
-    "good",
-    "excellent",
-    "plus",
-    "bonus",
-    "preferred",
-    "required",
-    "must",
-    "clean",
-    "maintainable",
-    "reusable",
-    "code",
-    "design",
-    "debugging",
-    "optimize",
-    "implement",
-    "build",
-    "develop",
-    "write",
-    "maintain",
+    # People / HR
+    "experience", "candidate", "candidates", "employee", "employees",
+    "professional", "professionals", "team", "teams", "member",
+    # Job posting boilerplate
+    "responsibility", "responsibilities", "requirement", "requirements",
+    "role", "roles", "position", "job", "title", "description",
+    "candidate profile", "job description",
+    # Company / org
+    "company", "organization", "organization",
+    # Work verbs / generic actions
+    "work", "working", "looking", "motivated", "join", "apply",
+    "implement", "build", "develop", "write", "maintain", "optimize",
+    "design", "debug", "debugging", "test", "testing", "manage",
+    "collaborate", "communicate", "ensure", "support", "provide",
+    # Adjectives / qualifiers
+    "ability", "abilities", "knowledge", "understanding", "familiarity",
+    "strong", "good", "excellent", "clean", "maintainable", "reusable",
+    "preferred", "required", "must", "plus", "bonus", "related",
+    "scalable", "motivated", "relevant",
+    # Location / logistics
+    "hybrid", "onsite", "remote", "location", "salary",
+    # Education
+    "degree", "bachelor", "master", "education", "field", "related field",
+    # Misc
+    "environment", "project", "projects", "skill", "skills",
+    "developer", "developers", "engineer", "engineers",
+    "application", "applications", "code", "information", "technology",
+    "information technology",
+}
+
+# Known tech skills that should always be kept even if POS looks odd
+TECH_SKILL_ALLOWLIST = {
+    "java", "python", "sql", "mysql", "mongodb", "postgresql", "redis",
+    "spring", "spring boot", "hibernate", "maven", "gradle",
+    "react", "react js", "angular", "vue", "node", "node js",
+    "javascript", "typescript", "html", "css",
+    "rest", "rest api", "restful", "graphql", "grpc",
+    "microservices", "docker", "kubernetes", "aws", "azure", "gcp",
+    "git", "github", "gitlab", "ci", "cd", "jenkins",
+    "jwt", "oauth", "oauth2", "linux", "bash",
+    "data structures", "algorithms", "oop", "solid",
+    "kafka", "rabbitmq", "redis", "elasticsearch",
+    "c", "c++", "c#", ".net", "go", "rust", "kotlin", "scala",
 }
 
 
 # Named entity labels that are NOT skills
 _NOISE_ENTITY_LABELS = {"GPE", "LOC", "PERSON", "ORG", "DATE", "TIME", "CARDINAL", "ORDINAL", "MONEY", "PERCENT"}
 
+# POS tags allowed in a valid skill phrase
+_ALLOWED_POS = {"NOUN", "PROPN", "ADJ", "NUM"}
+
+# POS tags that disqualify a phrase (verbs, pronouns, determiners, etc.)
+_REJECT_POS = {"VERB", "PRON", "DET", "CONJ", "CCONJ", "SCONJ", "INTJ", "PUNCT", "SPACE"}
+
 
 def strip_noise_entities(text):
     """Remove location, person, org, date, and numeric entities from text."""
     doc = nlp(text)
-    # Collect character spans to remove
-    remove_spans = [(ent.start_char, ent.end_char) for ent in doc.ents if ent.label_ in _NOISE_ENTITY_LABELS]
+    remove_spans = [
+        (ent.start_char, ent.end_char)
+        for ent in doc.ents
+        if ent.label_ in _NOISE_ENTITY_LABELS
+    ]
     if not remove_spans:
         return text
-    result = []
-    prev = 0
+    result, prev = [], 0
     for start, end in remove_spans:
         result.append(text[prev:start])
         prev = end
     result.append(text[prev:])
     return re.sub(r"\s+", " ", "".join(result)).strip()
+
+
+def _pos_validate_phrase(phrase):
+    """Return True if the phrase looks like a skill based on POS tags."""
+    # Always allow known tech terms
+    if phrase in TECH_SKILL_ALLOWLIST:
+        return True
+    doc = nlp(phrase)
+    for token in doc:
+        if token.pos_ in _REJECT_POS:
+            return False
+    pos_tags = [t.pos_ for t in doc]
+    # Must have at least one noun or proper noun
+    return any(p in {"NOUN", "PROPN"} for p in pos_tags)
 
 
 # =========================================================
@@ -155,39 +144,35 @@ def normalize_phrase(text):
 def is_valid_phrase(phrase):
     phrase = normalize_phrase(phrase)
 
-    if not phrase:
+    if not phrase or len(phrase) < 2:
         return False
 
     words = phrase.split()
 
     # Ignore very long phrases
-    if len(words) > 5:
+    if len(words) > 4:
         return False
 
-    # Ignore single generic words
+    # Reject pronouns / articles anywhere in phrase
+    _stop = {"we", "the", "our", "a", "an", "this", "that", "its", "their", "your", "i", "you"}
+    if any(w in _stop for w in words):
+        return False
+
+    # Exact match against generic terms
     if phrase in GENERIC_TERMS:
         return False
 
-    # Ignore phrases where majority of words are generic
-    meaningful_words = [
-        word for word in words
-        if word not in GENERIC_TERMS
-    ]
-
-    # Require at least half the words to be meaningful
-    if len(meaningful_words) < max(1, len(words) // 2):
+    # All words are generic
+    meaningful = [w for w in words if w not in GENERIC_TERMS]
+    if not meaningful:
         return False
 
-    # Reject if any word is a pronoun or article (we, the, our, a, an)
-    stopwords = {"we", "the", "our", "a", "an", "this", "that", "its", "their", "your"}
-    if any(w in stopwords for w in words):
-        return False
+    # Check allowlist before expensive POS check
+    if phrase in TECH_SKILL_ALLOWLIST:
+        return True
 
-    # Ignore very short phrases
-    if len(phrase) < 2:
-        return False
-
-    return True
+    # POS-based validation
+    return _pos_validate_phrase(phrase)
 
 
 # =========================================================
@@ -195,14 +180,10 @@ def is_valid_phrase(phrase):
 # =========================================================
 
 def extract_keybert_phrases(text, top_n=20):
-    """
-    Extract important keywords/keyphrases using KeyBERT.
-    """
-
-    text = strip_noise_entities(text)
+    cleaned = strip_noise_entities(text)
 
     keywords = kw_model.extract_keywords(
-        text,
+        cleaned,
         keyphrase_ngram_range=(1, 3),
         stop_words="english",
         use_mmr=True,
@@ -211,14 +192,10 @@ def extract_keybert_phrases(text, top_n=20):
     )
 
     phrases = []
-
     for phrase, score in keywords:
-
         phrase = normalize_phrase(phrase)
-
         if is_valid_phrase(phrase):
             phrases.append(phrase)
-
     return phrases
 
 
@@ -227,19 +204,19 @@ def extract_keybert_phrases(text, top_n=20):
 # =========================================================
 
 def extract_spacy_phrases(text):
-    """
-    Extract noun phrases using spaCy, skipping chunks that overlap noise entities.
-    """
     doc = nlp(text)
     noise_token_indices = {
-        token.i for ent in doc.ents
+        token.i
+        for ent in doc.ents
         if ent.label_ in _NOISE_ENTITY_LABELS
         for token in ent
     }
     phrases = []
     for chunk in doc.noun_chunks:
-        # Skip chunk if any token belongs to a noise entity
         if any(token.i in noise_token_indices for token in chunk):
+            continue
+        # Skip chunks whose root is a generic/HR word
+        if chunk.root.lemma_.lower() in GENERIC_TERMS:
             continue
         phrase = normalize_phrase(chunk.text)
         if is_valid_phrase(phrase):
