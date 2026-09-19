@@ -111,19 +111,19 @@ _NOISE_ENTITY_LABELS = {"GPE", "LOC", "PERSON", "ORG", "DATE", "TIME", "CARDINAL
 
 
 def strip_noise_entities(text):
-    """Remove location, person, org, and date entities from text before keyword extraction."""
+    """Remove location, person, org, date, and numeric entities from text."""
     doc = nlp(text)
-    tokens = []
-    skip_until = -1
-    for token in doc:
-        if token.i < skip_until:
-            continue
-        ent = token.ent_type_
-        if ent in _NOISE_ENTITY_LABELS:
-            skip_until = token.i + 1
-            continue
-        tokens.append(token.text)
-    return " ".join(tokens)
+    # Collect character spans to remove
+    remove_spans = [(ent.start_char, ent.end_char) for ent in doc.ents if ent.label_ in _NOISE_ENTITY_LABELS]
+    if not remove_spans:
+        return text
+    result = []
+    prev = 0
+    for start, end in remove_spans:
+        result.append(text[prev:start])
+        prev = end
+    result.append(text[prev:])
+    return re.sub(r"\s+", " ", "".join(result)).strip()
 
 
 # =========================================================
@@ -168,13 +168,19 @@ def is_valid_phrase(phrase):
     if phrase in GENERIC_TERMS:
         return False
 
-    # Ignore phrases containing only generic words
+    # Ignore phrases where majority of words are generic
     meaningful_words = [
         word for word in words
         if word not in GENERIC_TERMS
     ]
 
-    if not meaningful_words:
+    # Require at least half the words to be meaningful
+    if len(meaningful_words) < max(1, len(words) // 2):
+        return False
+
+    # Reject if any word is a pronoun or article (we, the, our, a, an)
+    stopwords = {"we", "the", "our", "a", "an", "this", "that", "its", "their", "your"}
+    if any(w in stopwords for w in words):
         return False
 
     # Ignore very short phrases
@@ -222,20 +228,22 @@ def extract_keybert_phrases(text, top_n=20):
 
 def extract_spacy_phrases(text):
     """
-    Extract noun phrases using spaCy.
+    Extract noun phrases using spaCy, skipping chunks that overlap noise entities.
     """
-
     doc = nlp(text)
-
+    noise_token_indices = {
+        token.i for ent in doc.ents
+        if ent.label_ in _NOISE_ENTITY_LABELS
+        for token in ent
+    }
     phrases = []
-
     for chunk in doc.noun_chunks:
-
+        # Skip chunk if any token belongs to a noise entity
+        if any(token.i in noise_token_indices for token in chunk):
+            continue
         phrase = normalize_phrase(chunk.text)
-
         if is_valid_phrase(phrase):
             phrases.append(phrase)
-
     return phrases
 
 
