@@ -62,7 +62,68 @@ GENERIC_TERMS = {
     "employees",
     "candidate profile",
     "job description",
+    # HR / job-posting noise
+    "looking",
+    "motivated",
+    "join",
+    "title",
+    "description",
+    "hybrid",
+    "onsite",
+    "remote",
+    "location",
+    "salary",
+    "apply",
+    "application",
+    "degree",
+    "bachelor",
+    "master",
+    "education",
+    "field",
+    "related field",
+    "familiarity",
+    "understanding",
+    "strong",
+    "good",
+    "excellent",
+    "plus",
+    "bonus",
+    "preferred",
+    "required",
+    "must",
+    "clean",
+    "maintainable",
+    "reusable",
+    "code",
+    "design",
+    "debugging",
+    "optimize",
+    "implement",
+    "build",
+    "develop",
+    "write",
+    "maintain",
 }
+
+
+# Named entity labels that are NOT skills
+_NOISE_ENTITY_LABELS = {"GPE", "LOC", "PERSON", "ORG", "DATE", "TIME", "CARDINAL", "ORDINAL", "MONEY", "PERCENT"}
+
+
+def strip_noise_entities(text):
+    """Remove location, person, org, and date entities from text before keyword extraction."""
+    doc = nlp(text)
+    tokens = []
+    skip_until = -1
+    for token in doc:
+        if token.i < skip_until:
+            continue
+        ent = token.ent_type_
+        if ent in _NOISE_ENTITY_LABELS:
+            skip_until = token.i + 1
+            continue
+        tokens.append(token.text)
+    return " ".join(tokens)
 
 
 # =========================================================
@@ -131,6 +192,8 @@ def extract_keybert_phrases(text, top_n=20):
     """
     Extract important keywords/keyphrases using KeyBERT.
     """
+
+    text = strip_noise_entities(text)
 
     keywords = kw_model.extract_keywords(
         text,
